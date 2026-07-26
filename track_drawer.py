@@ -1,50 +1,53 @@
 import pygame
-import sys
 
-pygame.init()
 
-screen_W = 1200
-screen_H = 700
-BLACK = (0, 0, 0)
-GREY = (120, 120, 120)
-WHITE = (255, 255, 255)
-Track_brush_size = 30
-Line_brush_size = 5
-drawing = False
+class Track:
 
-screen = pygame.display.set_mode((screen_W, screen_H))
-pygame.display.set_caption("Track Drawer")
+    def __init__(self, width=1200, height=700):
+        self.width = width
+        self.height = height
 
-track = pygame.Surface((screen_W, screen_H))
+        # Colors
+        self.BLACK = (0, 0, 0)
+        self.GREY = (120, 120, 120)
+        self.RED = (255, 0, 0)
 
-tick_rate = pygame.time.Clock()
+        # Brush settings
+        self.track_brush_size = 30
+        self.line_brush_size = 5
 
-while True:
+        # Drawing state
+        self.drawing = False
 
-    screen.fill(GREY)
-    screen.blit(track, (0, 0))
+        # Create track surface canvas
+        self.surface = pygame.Surface((self.width, self.height))
+        self.clear()
 
-    for input in pygame.event.get():
-        if input.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
+    def handle_event(self, event):
+        """Processes mouse input for drawing and keyboard input for clearing."""
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:  # Left click
+                self.drawing = True
 
-        elif input.type == pygame.MOUSEBUTTONDOWN:
-            if input.button == 1:
-                drawing = True
+        elif event.type == pygame.MOUSEBUTTONUP:
+            if event.button == 1:
+                self.drawing = False
 
-        elif input.type == pygame.MOUSEBUTTONUP:
-            if input.button == 1:
-                drawing = False          
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_c:
+                self.clear()
 
-        elif input.type == pygame.KEYDOWN:
-            if input.key == pygame.K_c:
-                track.fill(BLACK)
+    def update(self):
+        """Draws road segments onto the track surface while holding left click."""
+        if self.drawing:
+            mouse_pos = pygame.mouse.get_pos()
 
-    if drawing:
-        mouse_pos = pygame.mouse.get_pos()
-        pygame.draw.circle(track, GREY, mouse_pos, Track_brush_size)
+            pygame.draw.circle(self.surface, self.GREY, mouse_pos, self.track_brush_size)
 
-    pygame.display.update()
-    tick_rate.tick(120)
+    def clear(self):
+        """Resets the track surface back to solid black."""
+        self.surface.fill(self.BLACK)
 
+    def draw(self, screen):
+        """Renders the track canvas onto the main display window."""
+        screen.blit(self.surface, (0, 0))
