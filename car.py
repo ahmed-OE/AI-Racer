@@ -17,6 +17,14 @@ class Car(pygame.sprite.Sprite):
         self.height = 48
         self.color = color
 
+        self.speed = 0.0
+        self.angle = 0.0 
+        self.steering = 2.5
+        self.acceleration = 0.2
+        self.max_speed = 5.0
+        self.R_max_speed = 2.5
+        self.friction = 0.05
+
         # Pygame Sprites REQUIRE these two specific attribute names:
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
@@ -59,7 +67,37 @@ class Car(pygame.sprite.Sprite):
                     border_radius=2,
                 )
 
+        self.base_image = self.image.copy()
+        self.rect = self.image.get_rect(center=(int(self.x), int(self.y)))
 
-        # REMOVED: self.image.fill(color) <-- This line was erasing your windshield!
+    def handle_input(self):
+        keys = pygame.key.get_pressed()
 
+    # 1. ACCELERATION & REVERSE
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
+            self.speed = min(self.speed + self.acceleration, self.max_speed)
+        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+            self.speed = max(self.speed - self.acceleration, -self.R_max_speed)
+        else:
+           
+            if self.speed > 0:
+                self.speed = max(0.0, self.speed - self.friction)
+            elif self.speed < 0:
+                self.speed = min(0.0, self.speed + self.friction)
+
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+            self.angle -= self.steering
+        elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
+            self.angle += self.steering
+
+    def update(self):
+        self.handle_input()
+
+        # Trigonometry movement math
+        radians = math.radians(self.angle)
+        self.x += self.speed * math.sin(-radians)
+        self.y -= self.speed * math.cos(-radians)
+
+        # Rotate from base master image to prevent graphic distortion
+        self.image = pygame.transform.rotate(self.base_image, self.angle)
         self.rect = self.image.get_rect(center=(int(self.x), int(self.y)))
