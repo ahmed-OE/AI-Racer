@@ -7,47 +7,38 @@ class Track:
         self.width = width
         self.height = height
 
-        # Colors
-        self.BLACK = (0, 0, 0)
-        self.GREY = (120, 120, 120)
-        self.RED = (255, 0, 0)
-
-        # Brush settings
-        self.track_brush_size = 30
-        self.line_brush_size = 5
-
-        # Drawing state
-        self.drawing = False
-
-        # Create track surface canvas
+        # Canvas surface for visual road rendering
         self.surface = pygame.Surface((self.width, self.height))
-        self.clear()
+        self.surface.fill((0, 0, 0))  # Grass background
+
+        # LIST TO STORE INDIVIDUAL WALL RECTANGLES FOR COLLIDERECT
+        self.wall_rects = []
+
+        self.drawing = False
+        self.wall_radius = 35  # Size of outer border wall
 
     def handle_event(self, event):
-        """Processes mouse input for drawing and keyboard input for clearing."""
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:  # Left click
-                self.drawing = True
-
-        elif event.type == pygame.MOUSEBUTTONUP:
-            if event.button == 1:
-                self.drawing = False
-
-        elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_c:
-                self.clear()
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            self.drawing = True
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.drawing = False
 
     def update(self):
-        """Draws road segments onto the track surface while holding left click."""
+        """Draws track visuals AND creates collision rectangles for walls."""
         if self.drawing:
             mouse_pos = pygame.mouse.get_pos()
 
-            pygame.draw.circle(self.surface, self.GREY, mouse_pos, self.track_brush_size)
+            # 1. Create a small Rect for the wall segment at current mouse position
+            wall_rect = pygame.Rect(
+                mouse_pos[0] - self.wall_radius,
+                mouse_pos[1] - self.wall_radius,
+                self.wall_radius * 2,
+                self.wall_radius * 2,
+            )
+       
+            self.wall_rects.append(wall_rect)
 
-    def clear(self):
-        """Resets the track surface back to solid black."""
-        self.surface.fill(self.BLACK)
+            pygame.draw.circle(self.surface, (120, 120, 120), mouse_pos, self.wall_radius - 5)
 
     def draw(self, screen):
-        """Renders the track canvas onto the main display window."""
         screen.blit(self.surface, (0, 0))
