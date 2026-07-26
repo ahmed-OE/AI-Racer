@@ -3,6 +3,9 @@ import pygame
 
 class Track:
 
+    start_x = 100
+    start_y = 100
+
     def __init__(self, width=1200, height=700):
         self.width = width
         self.height = height
@@ -20,6 +23,9 @@ class Track:
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.drawing = True
+            mouse_pos = pygame.mouse.get_pos()
+            self.start_x = mouse_pos[0]
+            self.start_y = mouse_pos[1]
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.drawing = False
 
@@ -32,8 +38,8 @@ class Track:
             wall_rect = pygame.Rect(
                 mouse_pos[0] - self.wall_radius,
                 mouse_pos[1] - self.wall_radius,
-                self.wall_radius * 2,
-                self.wall_radius * 2,
+                self.wall_radius * 0.9,
+                self.wall_radius * 0.9,
             )
        
             self.wall_rects.append(wall_rect)

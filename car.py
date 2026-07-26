@@ -25,6 +25,12 @@ class Car(pygame.sprite.Sprite):
         self.R_max_speed = 2.5
         self.friction = 0.05
 
+        self.drift_speed = 0.0
+        self.drift_steering = 4.5
+        self.drift_max_speed = 3.5
+
+        self.direction = "none"
+
         # Pygame Sprites REQUIRE these two specific attribute names:
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
@@ -61,11 +67,11 @@ class Car(pygame.sprite.Sprite):
 
         # engine_shield
         pygame.draw.rect(
-                    self.image,
-                    (180, 220, 255),
-                    (6, self.height - 11, self.width - 12, 8),
-                    border_radius=2,
-                )
+            self.image,
+            (180, 220, 255),
+            (6, self.height - 11, self.width - 12, 8),
+            border_radius=2,
+        )
 
         self.base_image = self.image.copy()
         self.rect = self.image.get_rect(center=(int(self.x), int(self.y)))
@@ -73,22 +79,47 @@ class Car(pygame.sprite.Sprite):
     def handle_input(self):
         keys = pygame.key.get_pressed()
 
-    # 1. ACCELERATION & REVERSE
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
-            self.speed = min(self.speed + self.acceleration, self.max_speed)
-        elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            self.speed = max(self.speed - self.acceleration, -self.R_max_speed)
-        else:
-           
-            if self.speed > 0:
-                self.speed = max(0.0, self.speed - self.friction)
-            elif self.speed < 0:
-                self.speed = min(0.0, self.speed + self.friction)
+        self.drift_speed = self.speed
 
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            self.angle -= self.steering
-        elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            self.angle += self.steering
+        # 1. ACCELERATION & REVERSE
+        if keys[pygame.K_SPACE] or keys[pygame.K_RSHIFT]:
+
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                self.speed = min(self.drift_speed + self.acceleration, self.drift_max_speed)
+                self.direction = "forward"
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                self.speed = max(self.drift_speed - self.acceleration, -self.R_max_speed)
+                self.direction = "reverse"
+            else:              
+                if self.speed > 0:
+                    self.speed = max(0.0, self.drift_speed - self.friction)
+                elif self.speed < 0:
+                    self.speed = min(0.0, self.drift_speed + self.friction)
+            
+            # FIXED: Moved outside the else block so you can turn while pressing gas/brake in drift mode
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                self.angle -= self.drift_steering
+            elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                self.angle += self.drift_steering
+
+        else:
+
+            if keys[pygame.K_UP] or keys[pygame.K_w]:
+                self.speed = min(self.speed + self.acceleration, self.max_speed)
+                self.direction = "forward"
+            elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+                self.speed = max(self.speed - self.acceleration, -self.R_max_speed)
+                self.direction = "reverse"
+            else:              
+                if self.speed > 0:
+                    self.speed = max(0.0, self.speed - self.friction)
+                elif self.speed < 0:
+                    self.speed = min(0.0, self.speed + self.friction)
+        
+            if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+                self.angle -= self.steering
+            elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
+                self.angle += self.steering
 
     def update(self):
         self.handle_input()
