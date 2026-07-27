@@ -3,7 +3,6 @@ import pygame
 
 RED = (255, 0, 0)
 
-
 class Car(pygame.sprite.Sprite):
 
     def __init__(self, x, y, color=RED, *groups):
@@ -18,8 +17,8 @@ class Car(pygame.sprite.Sprite):
         self.color = color
 
         self.speed = 0.0
-        self.angle = 0.0 
-        
+        self.angle = 0.0
+
         # Standard driving parameters
         self.steering = 2.5
         self.acceleration = 0.05
@@ -30,10 +29,10 @@ class Car(pygame.sprite.Sprite):
         # Drift parameters
         self.drift_steering = 3.2
         self.drift_max_speed = 4.0
-        
+
         # 2. Traction controls lateral grip (0.0 = ice, 1.0 = glued to rails)
-        self.normal_traction = 0.18   # Snappy handling
-        self.drift_traction = 0.02    # Smooth lateral slide
+        self.normal_traction = 0.18  # Snappy handling
+        self.drift_traction = 0.02   # Smooth lateral slide
 
         self.is_drifting = False
         self.direction = "none"
@@ -49,20 +48,20 @@ class Car(pygame.sprite.Sprite):
             border_radius=6,
         )
 
-        # strip left
+        # Strip left
         pygame.draw.rect(
             self.image,
             (180, 180, 180),
             (11, 0, 3, self.height - 1),
             border_radius=6,
-        ) 
+        )
 
         pygame.draw.rect(
             self.image,
             (180, 180, 180),
             (15, 0, 3, self.height - 1),
             border_radius=6,
-        ) 
+        )
 
         # Windshield
         pygame.draw.rect(
@@ -72,7 +71,7 @@ class Car(pygame.sprite.Sprite):
             border_radius=2,
         )
 
-        # engine_shield
+        # Engine shield
         pygame.draw.rect(
             self.image,
             (180, 220, 255),
@@ -81,7 +80,49 @@ class Car(pygame.sprite.Sprite):
         )
 
         self.base_image = self.image.copy()
-        self.rect = self.image.get_rect(center=(int(self.position.x), int(self.position.y)))
+        self.rect = self.image.get_rect(
+            center=(int(self.position.x), int(self.position.y))
+        )
+
+    def rays(self, track_surface, ray_count=7, max_distance=220):
+
+        angle_offsets = [0, 20, -20, 40, -40, 70, -70]   # adjust as needed
+
+        self.rays_dist = []
+        self.rays_cords = []
+
+        base_direction = pygame.math.Vector2(0, -1)
+        width, height = track_surface.get_size()
+
+        for offset in angle_offsets:
+
+            direction = base_direction.rotate(-(self.angle + offset))
+            distance = max_distance
+            end_point = self.position + direction * max_distance
+
+            # Step 3 pixels at a time for fast raycasting
+            for step in range(1, max_distance + 1, 3):
+                point = self.position + direction * step
+                px, py = int(point.x), int(point.y)
+
+                # Check if point is inside the track surface
+                if 0 <= px < width and 0 <= py < height:
+                    pixel_color = track_surface.get_at((px, py))
+                    # If the pixel is dark (grass), we hit the track boundary
+                    if pixel_color.r < 50 and pixel_color.g < 50 and pixel_color.b < 50:
+                        distance = step
+                        end_point = point
+                        break
+                else:
+                    # Out of bounds → treat as grass
+                    distance = step
+                    end_point = point
+                    break
+
+            self.rays_dist.append(distance)
+            self.rays_cords.append((self.position.copy(), end_point))
+
+        return self.rays_dist, self.rays_cords
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -89,8 +130,12 @@ class Car(pygame.sprite.Sprite):
         # Check drift mode state
         self.is_drifting = keys[pygame.K_SPACE] or keys[pygame.K_RSHIFT]
 
-        current_max_speed = self.drift_max_speed if self.is_drifting else self.max_speed
-        current_steering = self.drift_steering if self.is_drifting else self.steering
+        current_max_speed = (
+            self.drift_max_speed if self.is_drifting else self.max_speed
+        )
+        current_steering = (
+            self.drift_steering if self.is_drifting else self.steering
+        )
 
         # ACCELERATION & REVERSE
         if keys[pygame.K_UP] or keys[pygame.K_w]:
@@ -99,29 +144,53 @@ class Car(pygame.sprite.Sprite):
         elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
             self.speed = max(self.speed - self.acceleration, -self.R_max_speed)
             self.direction = "reverse"
-        else:              
+        else:
             if self.speed > 0:
                 self.speed = max(0.0, self.speed - self.friction)
             elif self.speed < 0:
                 self.speed = min(0.0, self.speed + self.friction)
-        
+
         # STEERING
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             self.angle -= current_steering
         elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.angle += current_steering
 
+    def apply_action(self, action):
+        """Translates PyTorch AI actions (0: Coast, 1: Gas, 2: Left, 3: Right)."""
+        current_max_speed = (
+            self.drift_max_speed if self.is_drifting else self.max_speed
+        )
+        current_steering = (
+            self.drift_steering if self.is_drifting else self.steering
+        )
+
+        if action == 1:  # Gas
+            self.speed = min(self.speed + self.acceleration, current_max_speed)
+            self.direction = "forward"
+        elif action == 2:  # Left
+            self.angle += current_steering
+        elif action == 3:  # Right
+            self.angle -= current_steering
+        elif action == 0:  # Coast
+            if self.speed > 0:
+                self.speed = max(0.0, self.speed - self.friction)
+            elif self.speed < 0:
+                self.speed = min(0.0, self.speed + self.friction)
+
     def update(self):
         self.handle_input()
 
         # 3. Heading direction vector (where the nose points)
         forward_dir = pygame.math.Vector2(0, -1).rotate(-self.angle)
-        
+
         # Target velocity based purely on engine throttle & body orientation
         target_velocity = forward_dir * self.speed
 
         # Select traction grip based on drift state
-        traction = self.drift_traction if self.is_drifting else self.normal_traction
+        traction = (
+            self.drift_traction if self.is_drifting else self.normal_traction
+        )
 
         # 4. Smoothly blend actual momentum toward target direction
         self.velocity = self.velocity.lerp(target_velocity, traction)
@@ -131,4 +200,6 @@ class Car(pygame.sprite.Sprite):
 
         # Update sprite rotation & position
         self.image = pygame.transform.rotate(self.base_image, self.angle)
-        self.rect = self.image.get_rect(center=(int(self.position.x), int(self.position.y)))
+        self.rect = self.image.get_rect(
+            center=(int(self.position.x), int(self.position.y))
+        )

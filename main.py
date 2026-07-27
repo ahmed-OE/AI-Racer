@@ -1,5 +1,4 @@
 import sys
-import math
 import pygame
 from car import Car
 from track_drawer import Track
@@ -21,6 +20,7 @@ car = Car(track.start_x, track.start_y, (255, 0, 0))
 
 # States: "DRAW" or "DRIVE"
 state = "DRAW"
+toggle_rays = 0   # 0 = off, 1 = on
 
 # Simple UI Font
 font = pygame.font.SysFont("Arial", 16)
@@ -28,69 +28,80 @@ font = pygame.font.SysFont("Arial", 16)
 running = True
 while running:
 
+    # ---------------- EVENTS ----------------
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-        # Mode switching logic
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_m:
                 if state == "DRAW":
                     state = "DRIVE"
                     car = Car(track.start_x, track.start_y, (255, 0, 0))
-                elif state == "DRIVE":
+                else:
                     state = "DRAW"
 
-        # Only pass drawing inputs to track when in DRAW mode
+            if event.key == pygame.K_i:
+                toggle_rays = 1 - toggle_rays   # flip between 0 and 1
+
         if state == "DRAW":
             track.handle_event(event)
 
-    # --- UPDATE LOGIC ---
+    # ---------------- UPDATE ----------------
     if state == "DRAW":
         track.update()
 
     elif state == "DRIVE":
-        car.update() 
+        car.update()
 
-        # Collision Check
-        if hasattr(track, "wall_rects") and len(track.wall_rects) > 0:
-            hit_index = car.rect.collidelist(track.wall_rects)
+        # Calculate rays using the track surface (always, for AI)
+        car.rays(track.surface)
 
-            if hit_index != -1:
-                print("Car on track")
-            else:
+        # Collision Check (color-based)
+        center_x, center_y = int(car.position.x), int(car.position.y)
+        if 0 <= center_x < track.width and 0 <= center_y < track.height:
+            pixel_colour = track.surface.get_at((center_x, center_y))
+            if pixel_colour.r < 50 and pixel_colour.g < 50 and pixel_colour.b < 50:
                 if car.direction == "forward":
-                    car.speed = 0.2 
+                    car.speed = 0.2
                 elif car.direction == "reverse":
                     car.speed = -0.2
-                    
+        else:
+            if car.direction == "forward":
+                car.speed = 0.2
+            elif car.direction == "reverse":
+                car.speed = -0.2
 
-    # --- DRAWING LOGIC ---
+    # ---------------- DRAW ----------------
     screen.fill((0, 0, 0))
-    
-    # Always draw the track
+
+    # Draw track
     track.draw(screen)
 
-    # Only render car when driving
     if state == "DRIVE":
-        if hasattr(car, "draw"):
-            car.draw(screen)
-        else:
-            screen.blit(car.image, car.rect)
+        # Draw car
+        screen.blit(car.image, car.rect)
 
-    # Simple On-Screen Instruction Banner
+        # Draw rays only if toggled on
+        if toggle_rays == 1:
+            for start, end in car.rays_cords:
+                pygame.draw.line(screen, (255, 255, 0), start, end, 2)
+            for _, end in car.rays_cords:
+                pygame.draw.circle(screen, (255, 0, 0), (int(end.x), int(end.y)), 4)
+
+    # ---------------- UI ----------------
     if state == "DRAW":
-        banner_text = "MODE: Track Editor  |  Press SPACE to Drive"
+        banner_text = "MODE: Track Editor | M: Drive | I: toggle rays"
         banner_color = (0, 255, 128)
     else:
-        banner_text = "MODE: Driving  |  Press SPACE to Edit Track"
+        banner_text = "MODE: Driving | M: Edit Track | I: toggle rays"
         banner_color = (255, 200, 0)
 
     text_surface = font.render(banner_text, True, banner_color)
     screen.blit(text_surface, (20, 20))
 
-    clock.tick(FPS)
     pygame.display.flip()
+    clock.tick(FPS)
 
 pygame.quit()
 sys.exit()
