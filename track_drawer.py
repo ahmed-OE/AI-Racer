@@ -76,6 +76,27 @@ class Track:
                 8
             )
 
+    def get_pixel(self, x, y):
+        """Returns the surface pixel color at (x, y), or None if out of bounds."""
+        px, py = int(x), int(y)
+        if 0 <= px < self.width and 0 <= py < self.height:
+            return self.surface.get_at((px, py))
+        return None
+
+    def is_off_track(self, car):
+        """True if the car's center is on grass (dark pixel) or off the surface."""
+        pixel = self.get_pixel(car.position.x, car.position.y)
+        if pixel is None:
+            return True
+        return pixel.r < 50 and pixel.g < 50 and pixel.b < 50
+
+    def is_on_finish_line(self, car):
+        """True if the car's center is on the white start/finish line."""
+        pixel = self.get_pixel(car.position.x, car.position.y)
+        if pixel is None:
+            return False
+        return pixel.r > 200 and pixel.g > 200 and pixel.b > 200
+
     def draw(self, screen):
         # Blit the track surface (including the white line)
         screen.blit(self.surface, (0, 0))

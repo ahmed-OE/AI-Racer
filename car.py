@@ -38,6 +38,13 @@ class Car(pygame.sprite.Sprite):
         self.direction = "none"
 
         self.finished = False
+        self.crashed = False
+
+        # Used to gate finish-line detection: the car spawns ON the finish
+        # line, so we only count a "finish" once it has actually driven
+        # away from the start and come back around.
+        self.start_pos = pygame.math.Vector2(x, y)
+        self.left_start = False
 
         # Pygame Sprites REQUIRE these two specific attribute names:
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -158,28 +165,6 @@ class Car(pygame.sprite.Sprite):
         elif keys[pygame.K_LEFT] or keys[pygame.K_a]:
             self.angle += current_steering
 
-    def apply_action(self, action):
-        """Translates PyTorch AI actions (0: Coast, 1: Gas, 2: Left, 3: Right)."""
-        current_max_speed = (
-            self.drift_max_speed if self.is_drifting else self.max_speed
-        )
-        current_steering = (
-            self.drift_steering if self.is_drifting else self.steering
-        )
-
-        if action == 1:  # Gas
-            self.speed = min(self.speed + self.acceleration, current_max_speed)
-            self.direction = "forward"
-        elif action == 2:  # Left
-            self.angle += current_steering
-        elif action == 3:  # Right
-            self.angle -= current_steering
-        elif action == 0:  # Coast
-            if self.speed > 0:
-                self.speed = max(0.0, self.speed - self.friction)
-            elif self.speed < 0:
-                self.speed = min(0.0, self.speed + self.friction)
-
     def update(self):
         self.handle_input()
 
@@ -190,9 +175,7 @@ class Car(pygame.sprite.Sprite):
         target_velocity = forward_dir * self.speed
 
         # Select traction grip based on drift state
-        traction = (
-            self.drift_traction if self.is_drifting else self.normal_traction
-        )
+        traction = (self.drift_traction if self.is_drifting else self.normal_traction)
 
         # 4. Smoothly blend actual momentum toward target direction
         self.velocity = self.velocity.lerp(target_velocity, traction)
@@ -200,8 +183,89 @@ class Car(pygame.sprite.Sprite):
         # Apply displacement
         self.position += self.velocity
 
+        # Keep angle in a sane range so angle_norm in Model.py stays in [-1, 1]
+        self.angle %= 360
+        if self.angle > 180:
+            self.angle -= 360
+
+        # Once the car has driven far enough from its spawn point, it's
+        # allowed to trigger a finish-line crossing on the way back.
+        if not self.left_start and self.position.distance_to(self.start_pos) > 100:
+            self.left_start = True
+
         # Update sprite rotation & position
         self.image = pygame.transform.rotate(self.base_image, self.angle)
         self.rect = self.image.get_rect(
             center=(int(self.position.x), int(self.position.y))
         )
+
+    def reset(self, x, y):
+        """Fully resets the car to a fresh episode/lap at (x, y)."""
+        self.position = pygame.math.Vector2(x, y)
+        self.velocity = pygame.math.Vector2(0, 0)
+        self.speed = 0.0
+        self.angle = 0.0
+        self.direction = "none"
+        self.is_drifting = False
+        self.finished = False
+        self.crashed = False
+        self.start_pos = pygame.math.Vector2(x, y)
+        self.left_start = False
+
+        self.image = pygame.transform.rotate(self.base_image, self.angle)
+        self.rect = self.image.get_rect(
+            center=(int(self.position.x), int(self.position.y))
+        )
+
+    def apply_action(self, action):
+    
+        gas = False
+        brake = False
+        left = False
+        right = False
+        drift = False
+
+        if action == 0:           # Coast
+            pass
+        elif action == 1:         # Gas
+            gas = True
+        elif action == 2:         # Brake
+            brake = True
+        elif action == 3:         # Left
+            left = True
+        elif action == 4:         # Right
+            right = True
+        elif action == 5:         # Gas + Left
+            gas = True
+            left = True
+        elif action == 6:         # Gas + Right
+            gas = True
+            right = True
+        elif action == 7:         # Brake + Left
+            brake = True
+            left = True
+        elif action == 8:         # Brake + Right
+            brake = True
+            right = True
+        elif action == 9:
+            self.is_drifting = not self.is_drifting
+
+        current_max_speed = self.drift_max_speed if self.is_drifting else self.max_speed
+        current_steering = self.drift_steering if self.is_drifting else self.steering
+
+        if gas:
+            self.speed = min(self.speed + self.acceleration, current_max_speed)
+            self.direction = "forward"
+        elif brake:
+            self.speed = max(self.speed - self.acceleration * 2, -self.R_max_speed)
+            self.direction = "reverse"
+        else:
+            if self.speed > 0:
+                self.speed = max(0.0, self.speed - self.friction)
+            elif self.speed < 0:
+                self.speed = min(0.0, self.speed + self.friction)
+
+        if left and not right:
+            self.angle += current_steering
+        elif right and not left:
+            self.angle -= current_steering

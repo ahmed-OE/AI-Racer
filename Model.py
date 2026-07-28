@@ -1,4 +1,3 @@
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -6,8 +5,8 @@ import random
 from collections import deque
 
 # ---------- 1. HYPERPARAMETERS (adjust as you like) ----------
-INPUT_SIZE = 10          # number of ray distances
-ACTION_SIZE = 10         
+INPUT_SIZE = 9
+ACTION_SIZE = 10        
 GAMMA = 0.99
 LEARNING_RATE = 0.001
 BATCH_SIZE = 250
@@ -47,9 +46,10 @@ class ReplayBuffer:
     def push(self, state, action, reward, next_state, done):
         self.buffer.append((state, action, reward, next_state, done))
 
-    def sample(self):
-        return random.sample(self.buffer, BATCH_SIZE)
-        
+    def sample(self, batch_size):
+        batch = random.sample(self.buffer, batch_size)
+        return zip(*batch)  # transpose to (states, actions, rewards, next_states, dones)
+
 
     def __len__(self):
         return len(self.buffer)
@@ -70,14 +70,17 @@ step_count = 0
 
 # ---------- 6. HELPER FUNCTIONS ----------
 def get_state(car, track, max_dist=220):
-    # 1. Fire the sensors (updates car.rays_dist)
-    car.rays(track.surface)  
+    car.rays(track.surface)
 
-    # 2. Convert the list of distances into a GPU tensor
-    state_tensor = torch.tensor([car.rays_dist], dtype=torch.float32, device=device)
-
-    # 3. Divide state_tensor by max_dist and return it
-    return state_tensor / max_dist
+    rays_norm = [d / max_dist for d in car.rays_dist]
+ 
+    speed_norm = car.speed / car.max_speed
+    
+    angle_norm = car.angle / 180.0
+ 
+    state_list = rays_norm + [speed_norm, angle_norm]
+    state_tensor = torch.tensor([state_list], dtype=torch.float32, device=device)
+    return state_tensor
 
 
 def select_action(state):
@@ -95,20 +98,32 @@ def select_action(state):
             return torch.argmax(q_values).item()
 
 
-def compute_reward(car, track, Finished):
+def compute_reward(car, track):
+    """
+    Crash: the nearest wall ray is very close -> big penalty, episode ends.
+    Finish: the car has actually left the start area (car.left_start) and
+            is now back over the white finish line above walking speed
+            -> big bonus, episode ends.
+    """
+    crashed = min(car.rays_dist) < 10 or getattr(car, "crashed", False)
 
-    if(car.rays_dist) < 10 or getattr(car, "crashed", False):
-        reward -=100
+    if crashed:
+        reward = -100
         done = True
         return reward, done
-    else:
 
-        reward = 0.1 + (car.speed * 0.1)
-        done = False
+    reward = 0.1 + (car.speed * 0.1)
+    done = False
 
-    if(Finished == True):
+    crossed_finish = (
+        car.left_start
+        and track.is_on_finish_line(car)
+        and car.speed > 0.5
+    )
+    if crossed_finish:
+        car.finished = True
         reward += 100
-
+        done = True
 
     return reward, done
 
@@ -159,6 +174,10 @@ def train_step(car, track):
     car.apply_action(action)
     car.update()
 
+    # Refresh the rays at the car's NEW position before scoring it — otherwise
+    # compute_reward would be judging the position from before this step's move.
+    car.rays(track.surface)
+
     # 4. Compute reward and check for crash/terminal condition
     reward, done = compute_reward(car, track)
 
@@ -181,14 +200,6 @@ def train_step(car, track):
     # 10. Decay exploration rate epsilon
     epsilon = max(EPS_END, epsilon * EPS_DECAY)
 
-    # 11. Handle episode reset if car crashed or hit terminal state
+    # 11. Handle episode reset if car crashed or finished the lap
     if done:
-        if hasattr(car, "reset"):
-            car.reset(track.start_x, track.start_y)
-        else:
-            # Fallback attribute resets if car doesn't have a built-in reset() method
-            car.x, car.y = track.start_x, track.start_y
-            car.angle = 0
-            car.speed = 0
-            if hasattr(car, "crashed"):
-                car.crashed = False
+        car.reset(track.start_x, track.start_y)
