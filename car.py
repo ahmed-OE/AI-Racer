@@ -37,6 +37,8 @@ class Car(pygame.sprite.Sprite):
         self.is_drifting = False
         self.direction = "none"
 
+        self.finished = False
+
         # Pygame Sprites REQUIRE these two specific attribute names:
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
@@ -84,7 +86,7 @@ class Car(pygame.sprite.Sprite):
             center=(int(self.position.x), int(self.position.y))
         )
 
-    def rays(self, track_surface, ray_count=7, max_distance=220):
+    def rays(self, track_surface, max_distance=220):
 
         angle_offsets = [0, 20, -20, 40, -40, 70, -70]   # adjust as needed
 

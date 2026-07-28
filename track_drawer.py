@@ -9,14 +9,16 @@ class Track:
         self.width = width
         self.height = height
 
-        # Canvas surface for visual road rendering
         self.surface = pygame.Surface((self.width, self.height))
-        self.surface.fill((0, 0, 0))  # Grass background
+        self.surface.fill((0, 0, 0))
 
         self.drawing = False
-        self.wall_radius = 45  # Size of outer border wall
+        self.wall_radius = 45
+        self.last_draw_pos = None
 
-        self.last_draw_pos = None  # last point a segment was placed at, for gap-filling
+        # Start line data
+        self.start_line_pos = None
+        self.start_line_set = False
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -24,26 +26,27 @@ class Track:
             mouse_pos = pygame.mouse.get_pos()
             self.start_x = mouse_pos[0]
             self.start_y = mouse_pos[1]
-            self.last_draw_pos = None  # reset so the first point of a new stroke always places
+            self.last_draw_pos = None
+
+            # Store the start line position on the very first click
+            if not self.start_line_set:
+                self.start_line_pos = mouse_pos
+                self.start_line_set = True
+
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.drawing = False
 
     def _place_segment(self, pos):
-        """Draws one track segment as a visual circle."""
         radius = self.wall_radius - 5
         pygame.draw.circle(self.surface, (120, 120, 120), pos, radius)
 
     def update(self):
-        """Draws track visuals as the user drags the mouse."""
         if self.drawing:
             mouse_pos = pygame.mouse.get_pos()
 
             if self.last_draw_pos is None:
-                # First point of this stroke
                 self._place_segment(mouse_pos)
             else:
-                # Fill the gap between the last placed point and the current mouse
-                # position so a fast drag doesn't leave holes in the track.
                 last = pygame.math.Vector2(self.last_draw_pos)
                 current = pygame.math.Vector2(mouse_pos)
                 gap = current - last
@@ -61,5 +64,18 @@ class Track:
 
             self.last_draw_pos = mouse_pos
 
+        # ---------- DRAW START LINE ON THE SURFACE ----------
+        # This ensures it's visible for pixel‑color detection.
+        if self.start_line_set and self.start_line_pos is not None:
+            x, y = self.start_line_pos
+            pygame.draw.line(
+                self.surface,
+                (255, 255, 255),
+                (x + 30, y + 15),
+                (x - 30, y + 15),
+                8
+            )
+
     def draw(self, screen):
+        # Blit the track surface (including the white line)
         screen.blit(self.surface, (0, 0))

@@ -66,11 +66,11 @@ while running:
                     car.speed = 0.2
                 elif car.direction == "reverse":
                     car.speed = -0.2
-        else:
-            if car.direction == "forward":
-                car.speed = 0.2
-            elif car.direction == "reverse":
-                car.speed = -0.2
+
+            if pixel_colour.r > 200 and pixel_colour.g > 200 and pixel_colour.b > 200 and car.speed > 0.5:
+                car.finished = True
+                print(car.finished)
+            
 
     # ---------------- DRAW ----------------
     screen.fill((0, 0, 0))
