@@ -79,3 +79,9 @@ class Track:
     def draw(self, screen):
         # Blit the track surface (including the white line)
         screen.blit(self.surface, (0, 0))
+
+    def clear(self):
+        self.surface.fill((0, 0, 0))
+        self.start_line_set = False
+        self.start_line_pos = None
+        self.last_draw_pos = None

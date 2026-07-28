@@ -42,7 +42,10 @@ while running:
                     state = "DRAW"
 
             if event.key == pygame.K_i:
-                toggle_rays = 1 - toggle_rays   # flip between 0 and 1
+                toggle_rays = 1 - toggle_rays
+
+            if state == "DRAW" and event.key == pygame.K_c:
+                track.clear()
 
         if state == "DRAW":
             track.handle_event(event)
@@ -91,7 +94,7 @@ while running:
 
     # ---------------- UI ----------------
     if state == "DRAW":
-        banner_text = "MODE: Track Editor | M: Drive | I: toggle rays"
+        banner_text = "MODE: Track Editor| C: Reset the board | M: Drive"
         banner_color = (0, 255, 128)
     else:
         banner_text = "MODE: Driving | M: Edit Track | I: toggle rays"
