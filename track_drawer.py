@@ -91,6 +91,7 @@ class Track:
         return pixel.r < 50 and pixel.g < 50 and pixel.b < 50
 
     def is_on_finish_line(self, car):
+        pass
         """True if the car's center is on the white start/finish line."""
         pixel = self.get_pixel(car.position.x, car.position.y)
         if pixel is None:

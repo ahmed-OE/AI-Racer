@@ -160,46 +160,45 @@ def optimize_model():
 
 
 # ---------- 7. MAIN TRAINING STEP (called every frame from main.py) ----------
-def train_step(car, track):
-    """Performs one frame of interaction, experience storage, training, and state decay."""
-    global step_count, epsilon
-
-    # 1. Sense the current environment state
+# ---------- 7. MAIN TRAINING STEPS (Multi-Car) ----------
+def agent_step(car, track):
+    """Handles interaction and memory storage for a single car."""
     state = get_state(car, track)
-
-    # 2. Select an action via epsilon-greedy strategy
     action = select_action(state)
-
-    # 3. Apply action and update car physics/position
+    
     car.apply_action(action)
     car.update()
-
-    # Refresh the rays at the car's NEW position before scoring it — otherwise
-    # compute_reward would be judging the position from before this step's move.
     car.rays(track.surface)
-
-    # 4. Compute reward and check for crash/terminal condition
+    
     reward, done = compute_reward(car, track)
-
-    # 5. Sense the new state resulting from the action
     next_state = get_state(car, track)
-
-    # 6. Store transition in replay buffer
+    
     replay_buffer.push(state, action, reward, next_state, done)
-
-    # 7. Perform one gradient descent step on a random batch
-    optimize_model()
-
-    # 8. Increment global step counter
-    step_count += 1
-
-    # 9. Periodically synchronize target network with policy network
-    if step_count % TARGET_UPDATE == 0:
-        target_net.load_state_dict(policy_net.state_dict())
-
-    # 10. Decay exploration rate epsilon
-    epsilon = max(EPS_END, epsilon * EPS_DECAY)
-
-    # 11. Handle episode reset if car crashed or finished the lap
+    
     if done:
         car.reset(track.start_x, track.start_y)
+
+def group_train_step():
+    """Performs one gradient descent step per frame for the whole hive-mind."""
+    global step_count, epsilon
+    
+    optimize_model()
+    step_count += 1
+    
+    if step_count % TARGET_UPDATE == 0:
+        target_net.load_state_dict(policy_net.state_dict())
+        
+    epsilon = max(EPS_END, epsilon * EPS_DECAY)
+    
+
+def save_model(filepath="model.pth"):
+    torch.save(policy_net.state_dict(), filepath)
+    print(f"Model saved to {filepath}")
+
+def load_model(filepath="model.pth"):
+    try:
+        policy_net.load_state_dict(torch.load(filepath, map_location=device))
+        target_net.load_state_dict(policy_net.state_dict())
+        print(f"Model loaded from {filepath}")
+    except FileNotFoundError:
+        print("No saved model found, starting fresh.")

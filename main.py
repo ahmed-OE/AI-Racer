@@ -1,22 +1,30 @@
 import sys
 import pygame
+import random
 from car import Car
 from track_drawer import Track
-from Model import train_step   # import the training function
+from Model import agent_step, group_train_step, save_model, load_model
 
 pygame.init()
 WIDTH = 1200
 HEIGHT = 700
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("AI-Racer")
+pygame.display.set_caption("AI-Racer (50 Cars)")
 clock = pygame.time.Clock()
 FPS = 60
 
 track = Track(width=WIDTH, height=HEIGHT)
-car = Car(track.start_x, track.start_y, (255, 0, 0))
 
-state = "DRAW"          # "DRAW" or "DRIVE"
-training_mode = False   # True = AI trains, False = manual
+
+# --- Create a fleet of 50 cars ---
+NUM_CARS = 50
+
+Car_COLOR = [(255, 0, 0),(0, 255, 0),(0, 0, 255),(255, 255, 0),(255, 0, 255)]
+
+cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+
+state = "DRAW"          
+training_mode = False   
 toggle_rays = 0
 
 font = pygame.font.SysFont("Arial", 16)
@@ -28,10 +36,15 @@ while running:
             running = False
 
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_k:
+                save_model()
+            if event.key == pygame.K_l:
+                load_model()
+
             if event.key == pygame.K_m:
                 if state == "DRAW":
                     state = "DRIVE"
-                    car = Car(track.start_x, track.start_y, (255, 0, 0))
+                    cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
                     training_mode = False
                 else:
                     state = "DRAW"
@@ -46,7 +59,7 @@ while running:
                 training_mode = not training_mode
                 if training_mode:
                     print("Training ON")
-                    car = Car(track.start_x, track.start_y, (255, 0, 0))
+                    cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
                 else:
                     print("Manual ON")
 
@@ -59,43 +72,46 @@ while running:
 
     elif state == "DRIVE":
         if training_mode:
-            # AI training step (handles action, physics, reward, reset)
-            train_step(car, track)
+            # 1. Let every car act and learn
+            for c in cars:
+                agent_step(c, track)
+            # 2. Update the neural network once per frame
+            group_train_step()
+            
         else:
-            # Manual driving
-            car.handle_input()
-            car.update()
+            # Manual driving: You control car 0, the rest just sit there
+            cars[0].handle_input()
+            for c in cars:
+                c.update()
+                c.rays(track.surface)
+                
+                if track.is_off_track(c):
+                    if c.direction == "forward":
+                        c.speed = 0.2
+                    elif c.direction == "reverse":
+                        c.speed = -0.2
 
-        # Always update rays for visualisation and state (needed for both)
-        car.rays(track.surface)
-
-        # Collision / grass slow-down (kept for both modes)
-        if track.is_off_track(car):
-            if car.direction == "forward":
-                car.speed = 0.2
-            elif car.direction == "reverse":
-                car.speed = -0.2
-
-        # Finish line detection. Gated on car.left_start so the car doesn't
-        # register a "finish" the instant it spawns on the line itself —
-        # it has to actually drive away and come back around.
-        if car.left_start and track.is_on_finish_line(car) and car.speed > 0.5:
-            if not car.finished:
-                print("Crossed line")
-            car.finished = True
-        else:
-            car.finished = False
+                """if c.left_start and track.is_on_finish_line(c) and c.speed > 0.5:
+                    if not c.finished:
+                        print("Crossed line")
+                    c.finished = True
+                else:
+                    c.finished = False"""
 
     # ---------- DRAW ----------
     screen.fill((0, 0, 0))
     track.draw(screen)
 
     if state == "DRIVE":
-        screen.blit(car.image, car.rect)
+        # Draw all 50 cars
+        for c in cars:
+            screen.blit(c.image, c.rect)
+            
+        # Draw rays ONLY for the first car to avoid massive screen clutter
         if toggle_rays == 1:
-            for start, end in car.rays_cords:
+            for start, end in cars[0].rays_cords:
                 pygame.draw.line(screen, (255, 255, 0), start, end, 2)
-            for _, end in car.rays_cords:
+            for _, end in cars[0].rays_cords:
                 pygame.draw.circle(screen, (255, 0, 0), (int(end.x), int(end.y)), 4)
 
     # UI
@@ -103,8 +119,8 @@ while running:
         banner_text = "DRAW: Draw track | C: Clear | M: Drive"
         banner_color = (0, 255, 128)
     else:
-        mode_text = "TRAINING" if training_mode else "MANUAL"
-        banner_text = f"DRIVE: {mode_text} | T: toggle AI | M: Edit | I: toggle Rays"
+        mode_text = "TRAINING (50 CARS)" if training_mode else "MANUAL (1 CAR)"
+        banner_text = f"DRIVE: {mode_text} | T: toggle AI | M: Edit | I: toggle Rays | K/L: Save/Load"
         banner_color = (255, 200, 0)
 
     text_surface = font.render(banner_text, True, banner_color)
