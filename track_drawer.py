@@ -4,10 +4,15 @@ class Track:
 
     start_x = 100
     start_y = 100
+    draw_count = 0
+    last_time = 0
+
 
     def __init__(self, width=1200, height=700):
         self.width = width
         self.height = height
+        self.checkpoints = []
+        self.marker_pos = None
 
         self.surface = pygame.Surface((self.width, self.height))
         self.surface.fill((0, 0, 0))
@@ -54,11 +59,22 @@ class Track:
 
                 step_size = max(self.wall_radius - 5, 1) * 0.5
 
+
+                current_time = pygame.time.get_ticks()
+
+                if current_time - self.last_time >= 1000: 
+                    self.checkpoints.append((len(self.checkpoints) + 1, current.copy()))
+                    self.last_time = current_time
+                    self.marker_pos = current.copy()
+                    print(self.checkpoints)
+                
+
                 if distance > step_size:
                     steps = int(distance // step_size)
                     for i in range(1, steps + 1):
                         point = last + gap * (i / steps)
                         self._place_segment((point.x, point.y))
+                        
                 else:
                     self._place_segment(mouse_pos)
 
@@ -91,12 +107,18 @@ class Track:
         return pixel.r < 50 and pixel.g < 50 and pixel.b < 50
 
     def is_on_finish_line(self, car):
-        pass
         """True if the car's center is on the white start/finish line."""
         pixel = self.get_pixel(car.position.x, car.position.y)
         if pixel is None:
             return False
-        return pixel.r > 200 and pixel.g > 200 and pixel.b > 200
+        return pixel.r > 250 and pixel.g > 250 and pixel.b > 250
+
+    def is_on_reward(self, car):
+        """True if the car's center is on grass (dark pixel) or off the surface."""
+        pixel = self.get_pixel(car.position.x, car.position.y)
+        if pixel is None:
+            return True
+        return pixel.r > 80 and pixel.g > 80 and pixel.b > 80
 
     def draw(self, screen):
         # Blit the track surface (including the white line)

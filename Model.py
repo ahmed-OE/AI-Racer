@@ -70,8 +70,8 @@ step_count = 0
 
 # ---------- 6. HELPER FUNCTIONS ----------
 def get_state(car, track, max_dist=220):
-    car.rays(track.surface)
-
+    # Assumes car.rays() was already called this frame so rays_dist
+    # reflects the car's current position (avoids recomputing 3x/step).
     rays_norm = [d / max_dist for d in car.rays_dist]
  
     speed_norm = car.speed / car.max_speed
@@ -99,13 +99,8 @@ def select_action(state):
 
 
 def compute_reward(car, track):
-    """
-    Crash: the nearest wall ray is very close -> big penalty, episode ends.
-    Finish: the car has actually left the start area (car.left_start) and
-            is now back over the white finish line above walking speed
-            -> big bonus, episode ends.
-    """
-    crashed = min(car.rays_dist) < 10 or getattr(car, "crashed", False)
+  
+    crashed = track.is_off_track(car) or min(car.rays_dist) < 10
 
     if crashed:
         reward = -100
@@ -163,6 +158,7 @@ def optimize_model():
 # ---------- 7. MAIN TRAINING STEPS (Multi-Car) ----------
 def agent_step(car, track):
     """Handles interaction and memory storage for a single car."""
+    car.rays(track.surface)
     state = get_state(car, track)
     action = select_action(state)
     

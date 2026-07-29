@@ -166,8 +166,6 @@ class Car(pygame.sprite.Sprite):
             self.angle += current_steering
 
     def update(self):
-        self.handle_input()
-
         # 3. Heading direction vector (where the nose points)
         forward_dir = pygame.math.Vector2(0, -1).rotate(-self.angle)
 

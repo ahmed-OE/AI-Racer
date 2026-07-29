@@ -4,6 +4,7 @@ import random
 from car import Car
 from track_drawer import Track
 from Model import agent_step, group_train_step, save_model, load_model
+import Model as ai
 
 pygame.init()
 WIDTH = 1200
@@ -12,6 +13,7 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("AI-Racer (50 Cars)")
 clock = pygame.time.Clock()
 FPS = 60
+reward_drawn = False
 
 track = Track(width=WIDTH, height=HEIGHT)
 
@@ -26,6 +28,7 @@ cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in ran
 state = "DRAW"          
 training_mode = False   
 toggle_rays = 0
+frame_count = 0
 
 font = pygame.font.SysFont("Arial", 16)
 
@@ -54,7 +57,11 @@ while running:
 
             if state == "DRAW" and event.key == pygame.K_c:
                 track.clear()
+                track.checkpoints.clear()
+                reward_drawn = False
 
+
+            
             if event.key == pygame.K_t and state == "DRIVE":
                 training_mode = not training_mode
                 if training_mode:
@@ -77,7 +84,13 @@ while running:
                 agent_step(c, track)
             # 2. Update the neural network once per frame
             group_train_step()
-            
+
+            frame_count += 1
+            if frame_count % 2000 == 0:
+                print(f"[frame {frame_count}] epsilon={ai.epsilon:.3f} "
+                      f"buffer={len(ai.replay_buffer)} step={ai.step_count}")
+                save_model()
+
         else:
             # Manual driving: You control car 0, the rest just sit there
             cars[0].handle_input()
@@ -91,16 +104,29 @@ while running:
                     elif c.direction == "reverse":
                         c.speed = -0.2
 
-                """if c.left_start and track.is_on_finish_line(c) and c.speed > 0.5:
+                if c.left_start and track.is_on_finish_line(c) and c.speed > 0.5:
                     if not c.finished:
                         print("Crossed line")
                     c.finished = True
                 else:
-                    c.finished = False"""
+                    c.finished = False
+
+                if c.left_start and track.is_on_reward(c) and c.speed > 0.5:
+                    print("bravo")
+
+
 
     # ---------- DRAW ----------
     screen.fill((0, 0, 0))
     track.draw(screen)
+
+    if reward_drawn != True:
+        for number, position in track.checkpoints:
+            if number == 1:
+                pass
+            else:
+                pygame.draw.circle(screen,(100, 100, 100),(int(position.x), int(position.y)),25)
+                        
 
     if state == "DRIVE":
         # Draw all 50 cars
@@ -127,7 +153,11 @@ while running:
     screen.blit(text_surface, (20, 20))
 
     pygame.display.flip()
-    clock.tick(FPS)
+
+    if state == "DRIVE" and training_mode:
+        clock.tick(0)   # uncapped: pump as many training steps/sec as possible
+    else:
+        clock.tick(FPS)
 
 pygame.quit()
 sys.exit()
