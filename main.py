@@ -110,9 +110,7 @@ while running:
                     c.finished = True
                 else:
                     c.finished = False
-
-                if c.left_start and track.is_on_reward(c) and c.speed > 0.5:
-                    print("bravo")
+                
 
 
 

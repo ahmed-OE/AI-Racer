@@ -99,22 +99,33 @@ def select_action(state):
 
 
 def compute_reward(car, track):
-  
+
     crashed = track.is_off_track(car) or min(car.rays_dist) < 10
 
     if crashed:
-        reward = -100
-        done = True
-        return reward, done
+        return -100, True
 
     reward = 0.1 + (car.speed * 0.1)
     done = False
 
-    crossed_finish = (
-        car.left_start
-        and track.is_on_finish_line(car)
-        and car.speed > 0.5
-    )
+    reward_car = track.is_on_reward(car)
+
+    if reward_car:
+
+        for number, checkpoint_pos in track.checkpoints:
+
+            if number == car.current_checkpoint:
+
+                distance = reward_car.distance_to(checkpoint_pos)
+
+                if distance < 26:
+                    reward += 5
+                    car.current_checkpoint += 1
+
+                break
+
+    crossed_finish = (car.left_start and track.is_on_finish_line(car) and car.speed > 0.5)
+
     if crossed_finish:
         car.finished = True
         reward += 100

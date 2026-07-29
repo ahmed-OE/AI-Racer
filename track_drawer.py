@@ -114,11 +114,15 @@ class Track:
         return pixel.r > 250 and pixel.g > 250 and pixel.b > 250
 
     def is_on_reward(self, car):
-        """True if the car's center is on grass (dark pixel) or off the surface."""
         pixel = self.get_pixel(car.position.x, car.position.y)
+
         if pixel is None:
-            return True
-        return pixel.r > 80 and pixel.g > 80 and pixel.b > 80
+            return False
+
+        reward_cord = pygame.math.Vector2(car.position.x, car.position.y)
+        if pixel.r > 80 and pixel.g > 80 and pixel.b > 80:
+            return reward_cord
+        return False
 
     def draw(self, screen):
         # Blit the track surface (including the white line)

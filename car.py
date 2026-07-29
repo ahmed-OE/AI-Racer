@@ -8,6 +8,8 @@ class Car(pygame.sprite.Sprite):
     def __init__(self, x, y, color=RED, *groups):
         super().__init__(*groups)
 
+        self.current_checkpoint = 1
+
         # 1. Use Vector2 for 2D position and momentum
         self.position = pygame.math.Vector2(x, y)
         self.velocity = pygame.math.Vector2(0, 0)
@@ -199,6 +201,7 @@ class Car(pygame.sprite.Sprite):
 
     def reset(self, x, y):
         """Fully resets the car to a fresh episode/lap at (x, y)."""
+        self.current_checkpoint = 1
         self.position = pygame.math.Vector2(x, y)
         self.velocity = pygame.math.Vector2(0, 0)
         self.speed = 0.0
