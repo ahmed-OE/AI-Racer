@@ -15,6 +15,7 @@ TARGET_UPDATE = 100     # steps between target network updates
 EPS_START = 1.0
 EPS_END = 0.01
 EPS_DECAY = 0.998       # multiply epsilon each step
+GRAD_CLIP_NORM = 10.0   # clip gradients to keep training stable
 
 all_lap_times = [] 
 
@@ -110,19 +111,14 @@ def compute_reward(car, track):
     reward = 0.1 + (car.speed * 0.1)
     done = False
 
-    reward_car = track.is_on_reward(car)
+    if track.is_on_finish_line(car):
+        if car.velocity.y > 0.1: 
+            print("retared detcted")
+            return -150, True
+    # ---------------------------------
 
+    reward_car = track.is_on_reward(car)
     if reward_car:
-     
-        if len(track.checkpoints) >= 2:
-            last_number, last_pos = track.checkpoints[-1]
-            
-            if reward_car.distance_to(last_pos) < 26:
-               
-                if car.current_checkpoint < last_number:
-                   
-                    return -200, True 
-     
         for number, checkpoint_pos in track.checkpoints:
             if number == car.current_checkpoint:
                 distance = reward_car.distance_to(checkpoint_pos)
@@ -134,9 +130,17 @@ def compute_reward(car, track):
     crossed_finish = (car.left_start and track.is_on_finish_line(car) and car.speed > 0.5)
 
     if crossed_finish and total_checkpoints < car.current_checkpoint:
-        car.finished = True
-        reward += 100
+
+        lap_time = car.get_elapsed()
+        car.lap_times.append(lap_time)
+        all_lap_times.append(lap_time)  
+        reward += 100 + (100 - lap_time)
+
         done = True
+        car.finished = True
+
+        if car.velocity.y < 0:
+            reward += 100
 
     return reward, done
 
@@ -165,22 +169,29 @@ def optimize_model():
     loss_fn = nn.MSELoss()
     loss = loss_fn(current_q, target_q)
 
-    # 7. Gradient Descent Step
+
     optimizer.zero_grad()
     loss.backward()
+
+    nn.utils.clip_grad_norm_(policy_net.parameters(), GRAD_CLIP_NORM)
     optimizer.step()
 
 
-# ---------- 7. MAIN TRAINING STEP (called every frame from main.py) ----------
-# ---------- 7. MAIN TRAINING STEPS (Multi-Car) ----------
+
 def agent_step(car, track):
     """Handles interaction and memory storage for a single car."""
     car.rays(track.surface)
     state = get_state(car, track)
     action = select_action(state)
-    
+
+    # NOTE: apply_action() already calls car.update() internally (see
+    # car.py). Calling car.update() again here used to move/lerp the car
+    # a SECOND time per training step, effectively doubling its speed and
+    # traction convergence compared to normal manual-play physics. That
+    # mismatch meant the agent was learning to drive a car that moves
+    # differently from the one it actually controls outside training.
     car.apply_action(action)
-    car.update()
+
     car.is_in_drift_zone = track.is_on_drift_zone(car)
     dt = 1 / 60
     car.update_drift_boost(dt)
@@ -208,13 +219,35 @@ def group_train_step():
     
 
 def save_model(filepath="model.pth"):
-    torch.save(policy_net.state_dict(), filepath)
-    print(f"Model saved to {filepath}")
+
+    torch.save({
+        "policy_state_dict": policy_net.state_dict(),
+        "target_state_dict": target_net.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "epsilon": epsilon,
+        "step_count": step_count,
+    }, filepath)
+    print(f"Model saved to {filepath} (epsilon={epsilon:.3f}, step={step_count})")
 
 def load_model(filepath="model.pth"):
+    global epsilon, step_count
     try:
-        policy_net.load_state_dict(torch.load(filepath, map_location=device))
-        target_net.load_state_dict(policy_net.state_dict())
-        print(f"Model loaded from {filepath}")
+        checkpoint = torch.load(filepath, map_location=device)
+
+        if isinstance(checkpoint, dict) and "policy_state_dict" in checkpoint:
+            policy_net.load_state_dict(checkpoint["policy_state_dict"])
+            target_net.load_state_dict(
+                checkpoint.get("target_state_dict", checkpoint["policy_state_dict"])
+            )
+            if "optimizer_state_dict" in checkpoint:
+                optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            epsilon = checkpoint.get("epsilon", epsilon)
+            step_count = checkpoint.get("step_count", step_count)
+        else:
+            
+            policy_net.load_state_dict(checkpoint)
+            target_net.load_state_dict(policy_net.state_dict())
+
+        print(f"Model loaded from {filepath} (epsilon={epsilon:.3f}, step={step_count})")
     except FileNotFoundError:
         print("No saved model found, starting fresh.")
