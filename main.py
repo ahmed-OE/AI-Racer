@@ -20,8 +20,9 @@ Track_Draw_mode = "Track"
 
 track = Track(width=WIDTH, height=HEIGHT)
 
+all_lap_times = []
 
-# --- Create a fleet of 50 cars ---
+
 NUM_CARS = 50
 
 Car_COLOR = [(255, 0, 0),(0, 255, 0),(0, 0, 255),(255, 255, 0),(255, 0, 255)]
@@ -33,6 +34,7 @@ draw_edit = False
 training_mode = False   
 toggle_rays = 0
 frame_count = 0
+
 
 font = pygame.font.SysFont("Arial", 16)
 
@@ -51,13 +53,18 @@ while running:
             if event.key == pygame.K_m:
                 if state == "DRAW":
                     state = "DRIVE"
-                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))]
                     training_mode = False
                 else:
                     state = "DRAW"
 
             if event.key == pygame.K_i:
                 toggle_rays = 1 - toggle_rays
+
+            if event.key == pygame.K_p:
+                print("All lap times:", all_lap_times)
+                for i, car in enumerate(cars):
+                    print(f"Car {i} lap times: {car.lap_times}")
 
             if state == "DRAW":
 
@@ -71,21 +78,21 @@ while running:
                     if event.type == pygame.KEYDOWN:
                         match event.key:
                             case pygame.K_1:
-                                if Track_Draw_mode == "Track":
+                                if Track_Draw_mode == "Track" or Track_Draw_mode == "Drift-D" or Track_Draw_mode == "Drift-C":
                                     Track_Draw_mode = "Track"
                                     Track_size = 50
                                     track.clear()
                                     track.checkpoints.clear()
                                     reward_drawn = False
                             case pygame.K_2:
-                                if Track_Draw_mode == "Track":
+                                if Track_Draw_mode == "Track" or Track_Draw_mode == "Drift-D" or Track_Draw_mode == "Drift-C":
                                     Track_Draw_mode = "Track"
                                     Track_size = 45
                                     track.clear()
                                     track.checkpoints.clear()
                                     reward_drawn = False
                             case pygame.K_3:
-                                if Track_Draw_mode == "Track":
+                                if Track_Draw_mode == "Track" or Track_Draw_mode == "Drift-D" or Track_Draw_mode == "Drift-C":
                                     Track_Draw_mode = "Track"
                                     Track_size = 35
                                     track.clear()
@@ -93,6 +100,7 @@ while running:
                                     reward_drawn = False
                             case pygame.K_4:
                                 reward_drawn = False
+                                Track_Draw_mode = "Track"
                                 curr_mouse_pos = pygame.mouse.get_pos()
                                 track.checkpoints.clear()
                                 track.checkpoints.append((1, [track.spawn_car_x, track.spawn_car_y]))
@@ -101,10 +109,10 @@ while running:
                                     
                             case pygame.K_5:  
                                 reward_drawn = False
-                                track.checkpoints
                                 Track_Draw_mode = "Drift-D"
 
-                            case pygame.K_6:  
+                            case pygame.K_6:
+                                reward_drawn = False
                                 Track_Draw_mode = "Drift-C"
 
                             case pygame.K_0:
@@ -121,14 +129,14 @@ while running:
 
             
             if event.key == pygame.K_t and state == "DRIVE":
-                training_mode = not training_mode
-                if training_mode:
-                    print("Training ON")
-                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
-                else:
-                    for c in cars:
-                        cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))for _ in range(1)]
-                    print("Manual ON")
+                if event.key == pygame.K_t and state == "DRIVE":
+                    training_mode = not training_mode
+                    if training_mode:
+                        print("Training ON")
+                        cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+                    else:
+                        print("Manual ON")
+                        cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))] 
 
         if state == "DRAW":
             track.handle_event(event)
@@ -151,26 +159,33 @@ while running:
                       f"buffer={len(ai.replay_buffer)} step={ai.step_count}")
                 save_model()
 
-        else:
-            # Manual driving: You control car 0, the rest just sit there
+        else:   # manual mode (training_mode == False)
+    
             cars[0].handle_input()
             for c in cars:
                 c.update()
                 c.rays(track.surface)
-                
-                if track.is_off_track(c):
-                    if c.direction == "forward":
-                        c.speed = 0.2
-                    elif c.direction == "reverse":
-                        c.speed = -0.2
+                c.is_in_drift_zone = track.is_on_drift_zone(c)
+                dt = clock.get_time() / 1000.0
+                c.update_drift_boost(dt)
 
+
+                if track.is_off_track(c):
+                    c.reset(track.spawn_car_x, track.spawn_car_y)  
+                    continue   
+
+  
                 if c.left_start and track.is_on_finish_line(c) and c.speed > 0.5:
                     if not c.finished:
-                        print("Crossed line")
+                        lap_time = c.get_elapsed()
+                        c.lap_times.append(lap_time)
+                        all_lap_times.append(lap_time)  
+                        c.lap_start_time = pygame.time.get_ticks() 
+                        print(f"Manual lap: {lap_time:.2f}s")
                     c.finished = True
                 else:
                     c.finished = False
-                
+                        
 
 
 
@@ -191,7 +206,7 @@ while running:
         # Draw all 50 cars
         for c in cars:
             screen.blit(c.image, c.rect)
-            
+          
         # Draw rays ONLY for the first car to avoid massive screen clutter
         if toggle_rays == 1:
             for start, end in cars[0].rays_cords:

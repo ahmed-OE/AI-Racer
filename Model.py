@@ -6,7 +6,7 @@ from collections import deque
 
 # ---------- 1. HYPERPARAMETERS (adjust as you like) ----------
 INPUT_SIZE = 9
-ACTION_SIZE = 10        
+ACTION_SIZE = 13        
 GAMMA = 0.99
 LEARNING_RATE = 0.001
 BATCH_SIZE = 250
@@ -15,6 +15,8 @@ TARGET_UPDATE = 100     # steps between target network updates
 EPS_START = 1.0
 EPS_END = 0.01
 EPS_DECAY = 0.998       # multiply epsilon each step
+
+all_lap_times = [] 
 
 # ---------- 2. SETUP DEVICE (GPU if available) ----------
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -99,7 +101,6 @@ def select_action(state):
 
 
 def compute_reward(car, track):
-
     crashed = track.is_off_track(car) or min(car.rays_dist) < 10
     total_checkpoints = track.checkpoints[-1][0]
 
@@ -112,24 +113,22 @@ def compute_reward(car, track):
     reward_car = track.is_on_reward(car)
 
     if reward_car:
-
         for number, checkpoint_pos in track.checkpoints:
-
             if number == car.current_checkpoint:
-
                 distance = reward_car.distance_to(checkpoint_pos)
-
                 if distance < 26:
                     reward += 5
                     car.current_checkpoint += 1
-
                 break
 
     crossed_finish = (car.left_start and track.is_on_finish_line(car) and car.speed > 0.5)
 
     if crossed_finish and total_checkpoints < car.current_checkpoint:
         car.finished = True
-        reward += 100
+        lap_time = car.get_elapsed()
+        car.lap_times.append(lap_time)
+        all_lap_times.append(lap_time)
+        reward += 100 + (100 - lap_time)
         done = True
 
     return reward, done
@@ -176,6 +175,9 @@ def agent_step(car, track):
     
     car.apply_action(action)
     car.update()
+    car.is_in_drift_zone = track.is_on_drift_zone(car)
+    dt = 1 / 60
+    car.update_drift_boost(dt)
     car.rays(track.surface)
     
     reward, done = compute_reward(car, track)

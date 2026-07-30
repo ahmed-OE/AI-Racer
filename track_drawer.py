@@ -98,8 +98,8 @@ class Track:
             pygame.draw.line(
                 self.surface,
                 (255, 255, 255),
-                (x + (Track_size * 0.65), y + (Track_size * 0.33)),
-                (x - (Track_size * 0.65), y + (Track_size * 0.33)),
+                (x + (Track_size), y + (Track_size * 0.33)),
+                (x - (Track_size), y + (Track_size * 0.33)),
                 8
             )
 
@@ -134,6 +134,17 @@ class Track:
         if pixel.r > 80 and pixel.g > 80 and pixel.b > 80:
             return reward_cord
         return False
+
+    def is_on_drift_zone(self, car):
+            pixel = self.get_pixel(car.position.x, car.position.y)
+    
+            if pixel is None:
+                return False
+
+            if pixel.r > 250 and pixel.g > 210 and pixel.b > 40 and car.is_drifting == True:
+                return True
+            return False
+        
 
     def draw(self, screen):
         # Blit the track surface (including the white line)

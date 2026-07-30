@@ -37,7 +37,13 @@ class Car(pygame.sprite.Sprite):
         self.drift_traction = 0.02   # Smooth lateral slide
 
         self.is_drifting = False
+        self.is_in_drift_zone = False
         self.direction = "none"
+
+        self.drift_charge = 0.0
+        self.boost_timer = 0.0
+        self.normal_max_speed = 5.0
+        self.normal_acc = 0.05
 
         self.finished = False
         self.crashed = False
@@ -47,6 +53,10 @@ class Car(pygame.sprite.Sprite):
         # away from the start and come back around.
         self.start_pos = pygame.math.Vector2(x, y)
         self.left_start = False
+
+
+        self.lap_times = []
+        self.lap_start_time = pygame.time.get_ticks()
 
         # Pygame Sprites REQUIRE these two specific attribute names:
         self.image = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
@@ -132,6 +142,7 @@ class Car(pygame.sprite.Sprite):
 
             self.rays_dist.append(distance)
             self.rays_cords.append((self.position.copy(), end_point))
+            
 
         return self.rays_dist, self.rays_cords
 
@@ -168,6 +179,8 @@ class Car(pygame.sprite.Sprite):
             self.angle += current_steering
 
     def update(self):
+
+
         # 3. Heading direction vector (where the nose points)
         forward_dir = pygame.math.Vector2(0, -1).rotate(-self.angle)
 
@@ -195,9 +208,8 @@ class Car(pygame.sprite.Sprite):
 
         # Update sprite rotation & position
         self.image = pygame.transform.rotate(self.base_image, self.angle)
-        self.rect = self.image.get_rect(
-            center=(int(self.position.x), int(self.position.y))
-        )
+        self.rect = self.image.get_rect(center=(int(self.position.x), int(self.position.y)))
+
 
     def reset(self, x, y):
         """Fully resets the car to a fresh episode/lap at (x, y)."""
@@ -212,6 +224,12 @@ class Car(pygame.sprite.Sprite):
         self.crashed = False
         self.start_pos = pygame.math.Vector2(x, y)
         self.left_start = False
+
+        self.drift_charge = 0.0
+        self.boost_timer = 0.0
+        self.max_speed = self.normal_max_speed
+
+        self.lap_start_time = pygame.time.get_ticks()
 
         self.image = pygame.transform.rotate(self.base_image, self.angle)
         self.rect = self.image.get_rect(
@@ -249,7 +267,22 @@ class Car(pygame.sprite.Sprite):
             brake = True
             right = True
         elif action == 9:
-            self.is_drifting = not self.is_drifting
+            gas = True
+            right = True
+            drift = True
+        elif action == 10:         # Brake + Left
+            right = True
+            drift = True
+        elif action == 11:         # Brake + Right
+            gas = True
+            left = True
+            drift = True
+        elif action == 12:
+            left = True
+            drift = True            
+            
+
+        self.is_drifting = drift
 
         current_max_speed = self.drift_max_speed if self.is_drifting else self.max_speed
         current_steering = self.drift_steering if self.is_drifting else self.steering
@@ -270,3 +303,35 @@ class Car(pygame.sprite.Sprite):
             self.angle += current_steering
         elif right and not left:
             self.angle -= current_steering
+
+        self.update()
+
+    def update_drift_boost(self, dt):
+        if self.is_in_drift_zone and self.is_drifting:
+            self.drift_charge += dt
+        else:
+            self.drift_charge = 0.0
+
+        if self.drift_charge >= 0.2:
+            self.boost_timer = 0.5
+            self.drift_charge = 0.0
+
+        if self.boost_timer > 0:
+            self.boost_timer -= dt
+            self.max_speed = 6.0
+            self.acceleration = 0.1
+        else:
+            self.max_speed = self.normal_max_speed
+            self.acceleration = self.normal_acc
+
+    """    print(
+            self.is_in_drift_zone,
+            self.is_drifting,
+            round(self.drift_charge, 2),
+            round(self.boost_timer, 2),
+            self.max_speed
+        )"""
+
+    def get_elapsed(self):
+    
+        return (pygame.time.get_ticks() - self.lap_start_time) / 1000.0
