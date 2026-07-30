@@ -4,10 +4,11 @@ class Track:
 
     start_x = 100
     start_y = 100
-    spawn_car_x = 0
-    spawn_car_y = 0
+    spawn_car_x = -50
+    spawn_car_y = -50
     draw_count = 0
     last_time = 0
+
 
 
     def __init__(self, width=1200, height=700):
@@ -20,7 +21,6 @@ class Track:
         self.surface.fill((0, 0, 0))
 
         self.drawing = False
-        self.wall_radius = 45
         self.last_draw_pos = None
 
         # Start line data
@@ -45,42 +45,49 @@ class Track:
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.drawing = False
 
-    def _place_segment(self, pos):
-        radius = self.wall_radius - 5
-        pygame.draw.circle(self.surface, (120, 120, 120), pos, radius)
+    def _place_segment(self, pos, Track_size, mode): #drawing mode
 
-    def update(self):
+        if mode == "Track":
+            radius = Track_size - 5
+            pygame.draw.circle(self.surface, (120, 120, 120), pos, radius)
+        elif mode == "Drift-D":
+            pygame.draw.circle(self.surface, (255, 220, 50), pos, (Track_size * 0.30))
+        elif mode == "Drift-C":
+            pygame.draw.circle(self.surface, (120, 120, 120), pos, (Track_size * 0.50))
+
+    def update(self, Track_size, mode):
         if self.drawing:
             mouse_pos = pygame.mouse.get_pos()
 
             if self.last_draw_pos is None:
-                self._place_segment(mouse_pos)
+                self._place_segment(mouse_pos, Track_size, mode)
             else:
                 last = pygame.math.Vector2(self.last_draw_pos)
                 current = pygame.math.Vector2(mouse_pos)
                 gap = current - last
                 distance = gap.length()
 
-                step_size = max(self.wall_radius - 5, 1) * 0.5
+                step_size = max(Track_size - 5, 1) * 0.5
 
 
-                current_time = pygame.time.get_ticks()
+                if mode == "Track":
+                    current_time = pygame.time.get_ticks()
 
-                if current_time - self.last_time >= 1000: 
-                    self.checkpoints.append((len(self.checkpoints) + 1, current.copy()))
-                    self.last_time = current_time
-                    self.marker_pos = current.copy()
-                    print(self.checkpoints)
+                    if current_time - self.last_time >= 1000:
+                        self.checkpoints.append((len(self.checkpoints) + 1, current.copy()))
+                        self.last_time = current_time
+                        self.marker_pos = current.copy()
+                        print(self.checkpoints)
                 
 
                 if distance > step_size:
                     steps = int(distance // step_size)
                     for i in range(1, steps + 1):
                         point = last + gap * (i / steps)
-                        self._place_segment((point.x, point.y))
+                        self._place_segment((point.x, point.y), Track_size, mode)
                         
                 else:
-                    self._place_segment(mouse_pos)
+                    self._place_segment(mouse_pos, Track_size, mode)
 
             self.last_draw_pos = mouse_pos
 
@@ -91,8 +98,8 @@ class Track:
             pygame.draw.line(
                 self.surface,
                 (255, 255, 255),
-                (x + 30, y + 15),
-                (x - 30, y + 15),
+                (x + (Track_size * 0.65), y + (Track_size * 0.33)),
+                (x - (Track_size * 0.65), y + (Track_size * 0.33)),
                 8
             )
 

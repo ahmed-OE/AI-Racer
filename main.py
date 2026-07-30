@@ -14,6 +14,9 @@ pygame.display.set_caption("AI-Racer (50 Cars)")
 clock = pygame.time.Clock()
 FPS = 60
 reward_drawn = False
+drawing_drift = True
+Track_size = 45
+Track_Draw_mode = "Track"
 
 track = Track(width=WIDTH, height=HEIGHT)
 
@@ -25,7 +28,8 @@ Car_COLOR = [(255, 0, 0),(0, 255, 0),(0, 0, 255),(255, 255, 0),(255, 0, 255)]
 
 cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
 
-state = "DRAW"          
+state = "DRAW"
+draw_edit = False          
 training_mode = False   
 toggle_rays = 0
 frame_count = 0
@@ -55,10 +59,64 @@ while running:
             if event.key == pygame.K_i:
                 toggle_rays = 1 - toggle_rays
 
-            if state == "DRAW" and event.key == pygame.K_c:
-                track.clear()
-                track.checkpoints.clear()
-                reward_drawn = False
+            if state == "DRAW":
+
+                if event.key == pygame.K_e:
+                    if draw_edit == True:
+                        draw_edit = False
+                    else:
+                        draw_edit = True 
+
+                if draw_edit:
+                    if event.type == pygame.KEYDOWN:
+                        match event.key:
+                            case pygame.K_1:
+                                if Track_Draw_mode == "Track":
+                                    Track_Draw_mode = "Track"
+                                    Track_size = 50
+                                    track.clear()
+                                    track.checkpoints.clear()
+                                    reward_drawn = False
+                            case pygame.K_2:
+                                if Track_Draw_mode == "Track":
+                                    Track_Draw_mode = "Track"
+                                    Track_size = 45
+                                    track.clear()
+                                    track.checkpoints.clear()
+                                    reward_drawn = False
+                            case pygame.K_3:
+                                if Track_Draw_mode == "Track":
+                                    Track_Draw_mode = "Track"
+                                    Track_size = 35
+                                    track.clear()
+                                    track.checkpoints.clear()
+                                    reward_drawn = False
+                            case pygame.K_4:
+                                reward_drawn = False
+                                curr_mouse_pos = pygame.mouse.get_pos()
+                                track.checkpoints.clear()
+                                track.checkpoints.append((1, [track.spawn_car_x, track.spawn_car_y]))
+                                if event.type == pygame.MOUSEBUTTONDOWN:
+                                    pygame.draw.circle(screen,(100, 100, 100),(curr_mouse_pos), Track_size * 0.70)
+                                    
+                            case pygame.K_5:  
+                                reward_drawn = False
+                                track.checkpoints
+                                Track_Draw_mode = "Drift-D"
+
+                            case pygame.K_6:  
+                                Track_Draw_mode = "Drift-C"
+
+                            case pygame.K_0:
+                                track.checkpoints.clear()
+                                track.checkpoints.append((1, [track.spawn_car_x, track.spawn_car_y]))
+                                reward_drawn = False
+                                        
+                
+                if event.key == pygame.K_c:
+                    track.clear()
+                    track.checkpoints.clear()
+                    reward_drawn = False
 
 
             
@@ -68,6 +126,8 @@ while running:
                     print("Training ON")
                     cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
                 else:
+                    for c in cars:
+                        cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))for _ in range(1)]
                     print("Manual ON")
 
         if state == "DRAW":
@@ -75,7 +135,7 @@ while running:
 
     # ---------- UPDATE ----------
     if state == "DRAW":
-        track.update()
+        track.update(Track_size, Track_Draw_mode)
 
     elif state == "DRIVE":
         if training_mode:
@@ -123,7 +183,8 @@ while running:
             if number == 1:
                 pass
             else:
-                pygame.draw.circle(screen,(100, 100, 100),(int(position.x), int(position.y)),25)
+                pygame.draw.circle(screen,(100, 100, 100),(int(position.x), int(position.y)), Track_size * 0.70)
+      
                         
 
     if state == "DRIVE":
@@ -140,8 +201,13 @@ while running:
 
     # UI
     if state == "DRAW":
-        banner_text = "DRAW: Draw track | C: Clear | M: Drive"
-        banner_color = (0, 255, 128)
+
+        if draw_edit == False:
+            banner_text = "DRAW: Draw track | C: Clear | M: Drive | E: Toggle Edit" 
+            banner_color = (0, 255, 128)
+        else:
+            banner_text = "DRAW Options: | (1): Large brush | (2): Medium brush | (3): Small brush | (4): Checkpoint | (5): Drift-zone | (6): Clear dirft-zone (Draw)| (0): Clear checkpoints | C: Clear all | E: Toggle Edit" 
+            banner_color = (0, 255, 128)
     else:
         mode_text = "TRAINING (50 CARS)" if training_mode else "MANUAL (1 CAR)"
         banner_text = f"DRIVE: {mode_text} | T: toggle AI | M: Edit | I: toggle Rays | K/L: Save/Load"
