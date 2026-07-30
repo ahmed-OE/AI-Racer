@@ -102,7 +102,7 @@ def select_action(state):
 
 def compute_reward(car, track):
     crashed = track.is_off_track(car) or min(car.rays_dist) < 10
-    total_checkpoints = track.checkpoints[-1][0]
+    total_checkpoints = track.checkpoints[-1][0] if track.checkpoints else 0
 
     if crashed:
         return -100, True
@@ -113,6 +113,16 @@ def compute_reward(car, track):
     reward_car = track.is_on_reward(car)
 
     if reward_car:
+     
+        if len(track.checkpoints) >= 2:
+            last_number, last_pos = track.checkpoints[-1]
+            
+            if reward_car.distance_to(last_pos) < 26:
+               
+                if car.current_checkpoint < last_number:
+                   
+                    return -200, True 
+     
         for number, checkpoint_pos in track.checkpoints:
             if number == car.current_checkpoint:
                 distance = reward_car.distance_to(checkpoint_pos)
@@ -125,14 +135,10 @@ def compute_reward(car, track):
 
     if crossed_finish and total_checkpoints < car.current_checkpoint:
         car.finished = True
-        lap_time = car.get_elapsed()
-        car.lap_times.append(lap_time)
-        all_lap_times.append(lap_time)
-        reward += 100 + (100 - lap_time)
+        reward += 100
         done = True
 
     return reward, done
-
 
 def optimize_model():
 
