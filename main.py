@@ -23,7 +23,7 @@ NUM_CARS = 50
 
 Car_COLOR = [(255, 0, 0),(0, 255, 0),(0, 0, 255),(255, 255, 0),(255, 0, 255)]
 
-cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
 
 state = "DRAW"          
 training_mode = False   
@@ -47,7 +47,7 @@ while running:
             if event.key == pygame.K_m:
                 if state == "DRAW":
                     state = "DRIVE"
-                    cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
                     training_mode = False
                 else:
                     state = "DRAW"
@@ -66,7 +66,7 @@ while running:
                 training_mode = not training_mode
                 if training_mode:
                     print("Training ON")
-                    cars = [Car(track.start_x, track.start_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
                 else:
                     print("Manual ON")
 

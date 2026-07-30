@@ -4,6 +4,8 @@ class Track:
 
     start_x = 100
     start_y = 100
+    spawn_car_x = 0
+    spawn_car_y = 0
     draw_count = 0
     last_time = 0
 
@@ -36,6 +38,8 @@ class Track:
             # Store the start line position on the very first click
             if not self.start_line_set:
                 self.start_line_pos = mouse_pos
+                self.spawn_car_x = mouse_pos[0]
+                self.spawn_car_y = mouse_pos[1]
                 self.start_line_set = True
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:

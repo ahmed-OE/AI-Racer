@@ -184,7 +184,7 @@ def agent_step(car, track):
     replay_buffer.push(state, action, reward, next_state, done)
     
     if done:
-        car.reset(track.start_x, track.start_y)
+        car.reset(track.spawn_car_x, track.spawn_car_y)
 
 def group_train_step():
     """Performs one gradient descent step per frame for the whole hive-mind."""
