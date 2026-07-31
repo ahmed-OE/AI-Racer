@@ -111,6 +111,10 @@ def compute_reward(car, track):
     reward = 0.1 + (car.speed * 0.1)
     done = False
 
+    # Encourage drifting inside drift-zones
+    if car.is_in_drift_zone:
+        reward += 1
+
     if track.is_on_finish_line(car):
         if car.velocity.y > 0.1: 
             print("retared detcted")
@@ -162,10 +166,9 @@ def optimize_model():
    
     with torch.no_grad():
         max_next_q = target_net(next_states).max(1)[0].unsqueeze(1)
-        # Target formula: reward + gamma * max_next_q * (1 - done)
+       
         target_q = rewards + (GAMMA * max_next_q * (1.0 - dones))
 
-    # 6. Compute Loss (MSE or Huber/SmoothL1)
     loss_fn = nn.MSELoss()
     loss = loss_fn(current_q, target_q)
 
@@ -184,12 +187,6 @@ def agent_step(car, track):
     state = get_state(car, track)
     action = select_action(state)
 
-    # NOTE: apply_action() already calls car.update() internally (see
-    # car.py). Calling car.update() again here used to move/lerp the car
-    # a SECOND time per training step, effectively doubling its speed and
-    # traction convergence compared to normal manual-play physics. That
-    # mismatch meant the agent was learning to drive a car that moves
-    # differently from the one it actually controls outside training.
     car.apply_action(action)
 
     car.is_in_drift_zone = track.is_on_drift_zone(car)

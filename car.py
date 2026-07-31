@@ -42,6 +42,12 @@ class Car(pygame.sprite.Sprite):
 
         self.drift_charge = 0.0
         self.boost_timer = 0.0
+
+        # Normal-area drift boost: drifting for 0.5s outside a drift-zone
+        # grants a smaller, shorter boost (top speed 5.5 / accel 0.07 for 0.2s)
+        self.normal_drift_charge = 0.0
+        self.normal_boost_timer = 0.0
+
         self.normal_max_speed = 5.0
         self.normal_acc = 0.05
 
@@ -227,7 +233,10 @@ class Car(pygame.sprite.Sprite):
 
         self.drift_charge = 0.0
         self.boost_timer = 0.0
+        self.normal_drift_charge = 0.0
+        self.normal_boost_timer = 0.0
         self.max_speed = self.normal_max_speed
+        self.acceleration = self.normal_acc
 
         self.lap_start_time = pygame.time.get_ticks()
 
@@ -307,6 +316,7 @@ class Car(pygame.sprite.Sprite):
         self.update()
 
     def update_drift_boost(self, dt):
+        # ---- Drift-zone charge/boost (unchanged) ----
         if self.is_in_drift_zone and self.is_drifting:
             self.drift_charge += dt
         else:
@@ -318,8 +328,27 @@ class Car(pygame.sprite.Sprite):
 
         if self.boost_timer > 0:
             self.boost_timer -= dt
+
+        # ---- Normal-area drift ----
+        if self.is_drifting and not self.is_in_drift_zone:
+            self.normal_drift_charge += dt
+        else:
+            self.normal_drift_charge = 0.0
+
+        if self.normal_drift_charge >= 0.5:
+            self.normal_boost_timer = 0.2
+            self.normal_drift_charge = 0.0
+
+        if self.normal_boost_timer > 0:
+            self.normal_boost_timer -= dt
+
+        # ---- (drift-zone boost) ----
+        if self.boost_timer > 0:
             self.max_speed = 6.0
             self.acceleration = 0.1
+        elif self.normal_boost_timer > 0:
+            self.max_speed = 5.5
+            self.acceleration = 0.07
         else:
             self.max_speed = self.normal_max_speed
             self.acceleration = self.normal_acc

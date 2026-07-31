@@ -105,7 +105,7 @@ while running:
                                 track.checkpoints.clear()
                                 track.checkpoints.append((1, [track.spawn_car_x, track.spawn_car_y]))
                                 if event.type == pygame.MOUSEBUTTONDOWN:
-                                    pygame.draw.circle(screen,(100, 100, 100),(curr_mouse_pos), Track_size * 0.90)
+                                    pygame.draw.circle(screen,(100, 100, 100),(curr_mouse_pos), Track_size)
                                     
                             case pygame.K_5:  
                                 reward_drawn = False
@@ -198,7 +198,7 @@ while running:
             if number == 1:
                 pass
             else:
-                pygame.draw.circle(screen,(100, 100, 100),(int(position.x), int(position.y)), Track_size * 0.90)
+                pygame.draw.circle(screen,(100, 100, 100),(int(position.x), int(position.y)), Track_size)
       
                         
 
