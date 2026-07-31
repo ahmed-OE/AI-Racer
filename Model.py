@@ -117,7 +117,6 @@ def compute_reward(car, track):
 
     if track.is_on_finish_line(car):
         if car.velocity.y > 0.1: 
-            print("retared detcted")
             return -150, True
     # ---------------------------------
 
@@ -138,7 +137,7 @@ def compute_reward(car, track):
         lap_time = car.get_elapsed()
         car.lap_times.append(lap_time)
         all_lap_times.append(lap_time)  
-        reward += 100 + (100 - lap_time)
+        reward += 100 + max(0, (30 - lap_time + 1) * 5)
 
         done = True
         car.finished = True

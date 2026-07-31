@@ -28,6 +28,7 @@ NUM_CARS = 50
 Car_COLOR = [(255, 0, 0),(0, 255, 0),(0, 0, 255),(255, 255, 0),(255, 0, 255)]
 
 cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+lap_count_snapshot = [0] * len(cars)  # snapshot of lap counts at last 2000-frame checkpoint, used for windowed "slowest"
 
 state = "DRAW"
 draw_edit = False          
@@ -37,6 +38,16 @@ frame_count = 0
 
 
 font = pygame.font.SysFont("Arial", 16)
+stats_font = pygame.font.SysFont("Arial", 16, bold=True)
+
+
+def format_lap_time(t):
+    seconds = int(t)
+    millis = int(round((t - seconds) * 1000))
+    if millis == 1000:
+        seconds += 1
+        millis = 0
+    return f"{seconds}:{millis:03d}"
 
 running = True
 while running:
@@ -54,6 +65,7 @@ while running:
                 if state == "DRAW":
                     state = "DRIVE"
                     cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))]
+                    lap_count_snapshot = [0] * len(cars)
                     training_mode = False
                 else:
                     state = "DRAW"
@@ -137,6 +149,7 @@ while running:
                     else:
                         print("Manual ON")
                         cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))] 
+                    lap_count_snapshot = [0] * len(cars)
 
         if state == "DRAW":
             track.handle_event(event)
@@ -158,6 +171,7 @@ while running:
                 print(f"[frame {frame_count}] epsilon={ai.epsilon:.3f} "
                       f"buffer={len(ai.replay_buffer)} step={ai.step_count}")
                 save_model()
+                lap_count_snapshot = [len(c.lap_times) for c in cars]
 
         else:   # manual mode (training_mode == False)
     
@@ -230,6 +244,67 @@ while running:
 
     text_surface = font.render(banner_text, True, banner_color)
     screen.blit(text_surface, (20, 20))
+
+    UI_BORDER_Y = 50
+    pygame.draw.line(screen, (90, 90, 90), (0, UI_BORDER_Y), (WIDTH, UI_BORDER_Y), 1)
+
+    if state == "DRIVE" and training_mode:
+        fastest_time = None
+        fastest_car_no = None
+        slowest_time = None
+        slowest_car_no = None
+        all_times = []
+
+        for idx, c in enumerate(cars):
+            if c.lap_times:
+                car_best = min(c.lap_times)
+                if fastest_time is None or car_best < fastest_time:
+                    fastest_time = car_best
+                    fastest_car_no = idx
+
+            # Only consider laps completed since the last 2000-frame checkpoint
+            snap_idx = lap_count_snapshot[idx] if idx < len(lap_count_snapshot) else 0
+            recent_laps = c.lap_times[snap_idx:]
+            if recent_laps:
+                all_times.extend(recent_laps)
+                car_worst = max(recent_laps)
+                if slowest_time is None or car_worst > slowest_time:
+                    slowest_time = car_worst
+                    slowest_car_no = idx
+
+        if fastest_time is not None:
+            fastest_str = f"fastest-car({fastest_car_no}): [{format_lap_time(fastest_time)}]"
+        else:
+            fastest_str = "fastest-car(--): [--:---]"
+
+        if slowest_time is not None:
+            slowest_str = f"slowest-car({slowest_car_no}): [{format_lap_time(slowest_time)}]"
+        else:
+            slowest_str = "slowest-car(--): [--:---]"
+
+        if all_times:
+            avg_time = sum(all_times) / len(all_times)
+            avg_car_count = sum(1 for idx, c in enumerate(cars)
+                                 if c.lap_times[lap_count_snapshot[idx] if idx < len(lap_count_snapshot) else 0:])
+            avg_str = f"average: [{format_lap_time(avg_time)}]"
+        else:
+            avg_str = "average: [--:---]"
+
+        fastest_surface = stats_font.render(fastest_str, True, (170, 0, 255))
+        avg_surface = stats_font.render(avg_str, True, (0, 255, 0))
+        slowest_surface = stats_font.render(slowest_str, True, (255, 255, 0))
+
+        gap = 20
+        margin_right = 20
+        margin_top = 20
+
+        slowest_rect = slowest_surface.get_rect(topright=(WIDTH - margin_right, margin_top))
+        avg_rect = avg_surface.get_rect(topright=(slowest_rect.left - gap, margin_top))
+        fastest_rect = fastest_surface.get_rect(topright=(avg_rect.left - gap, margin_top))
+
+        screen.blit(fastest_surface, fastest_rect)
+        screen.blit(avg_surface, avg_rect)
+        screen.blit(slowest_surface, slowest_rect)
 
     pygame.display.flip()
 
