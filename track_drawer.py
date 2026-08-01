@@ -100,7 +100,7 @@ class Track:
                 (255, 255, 255),
                 (x + (Track_size), y + (Track_size * 0.33)),
                 (x - (Track_size), y + (Track_size * 0.33)),
-                8
+                10
             )
 
     def get_pixel(self, x, y):

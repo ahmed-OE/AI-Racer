@@ -17,6 +17,7 @@ reward_drawn = False
 drawing_drift = True
 Track_size = 45
 Track_Draw_mode = "Track"
+flying_lap = False
 
 track = Track(width=WIDTH, height=HEIGHT)
 
@@ -138,14 +139,25 @@ while running:
                     track.checkpoints.clear()
                     reward_drawn = False
 
-
+            if event.key == pygame.K_f and state == "DRIVE" and training_mode:
+                flying_lap = not flying_lap
+                print("Flying lap mode:", "ON" if flying_lap else "OFF")
+                if flying_lap:
+                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))]
+                else:
+                    cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+                lap_count_snapshot = [0] * len(cars)
             
             if event.key == pygame.K_t and state == "DRIVE":
                 if event.key == pygame.K_t and state == "DRIVE":
                     training_mode = not training_mode
                     if training_mode:
                         print("Training ON")
-                        cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
+                        if flying_lap:
+                            cars.clear()
+                            cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))]
+                        else:
+                            cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR)) for _ in range(NUM_CARS)]
                     else:
                         print("Manual ON")
                         cars = [Car(track.spawn_car_x, track.spawn_car_y, random.choice(Car_COLOR))] 
@@ -162,7 +174,7 @@ while running:
         if training_mode:
             # 1. Let every car act and learn
             for c in cars:
-                agent_step(c, track)
+                agent_step(c, track, Track_size)
             # 2. Update the neural network once per frame
             group_train_step()
 
@@ -239,7 +251,10 @@ while running:
             banner_color = (0, 255, 128)
     else:
         mode_text = "TRAINING (50 CARS)" if training_mode else "MANUAL (1 CAR)"
-        banner_text = f"DRIVE: {mode_text} | T: toggle AI | M: Edit | I: toggle Rays | K/L: Save/Load"
+        if training_mode:
+            banner_text = f"DRIVE: {mode_text} | T: toggle AI | F: flying lap ({'ON' if flying_lap else 'OFF'}) | M: Edit | I: toggle Rays | K/L: Save/Load"
+        else:
+            banner_text = f"DRIVE: {mode_text} | T: toggle AI | M: Edit | I: toggle Rays | K/L: Save/Load"
         banner_color = (255, 200, 0)
 
     text_surface = font.render(banner_text, True, banner_color)
@@ -308,7 +323,7 @@ while running:
 
     pygame.display.flip()
 
-    if state == "DRIVE" and training_mode:
+    if state == "DRIVE" and training_mode and not flying_lap:
         clock.tick(0)   # uncapped: pump as many training steps/sec as possible
     else:
         clock.tick(FPS)

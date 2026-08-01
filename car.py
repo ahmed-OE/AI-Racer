@@ -113,7 +113,7 @@ class Car(pygame.sprite.Sprite):
 
     def rays(self, track_surface, max_distance=220):
 
-        angle_offsets = [0, 20, -20, 40, -40, 70, -70]   # adjust as needed
+        angle_offsets = [0, 180, 20, -20, 40, -40, 70, -70, 150, -150]   # adjust as needed
 
         self.rays_dist = []
         self.rays_cords = []

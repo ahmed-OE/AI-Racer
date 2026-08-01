@@ -5,7 +5,7 @@ import random
 from collections import deque
 
 # ---------- 1. HYPERPARAMETERS (adjust as you like) ----------
-INPUT_SIZE = 9
+INPUT_SIZE = 12
 ACTION_SIZE = 13        
 GAMMA = 0.99
 LEARNING_RATE = 0.001
@@ -101,7 +101,7 @@ def select_action(state):
             return torch.argmax(q_values).item()
 
 
-def compute_reward(car, track):
+def compute_reward(car, track, Track_size):
     crashed = track.is_off_track(car) or min(car.rays_dist) < 10
     total_checkpoints = track.checkpoints[-1][0] if track.checkpoints else 0
 
@@ -109,6 +109,9 @@ def compute_reward(car, track):
         return -100, True
 
     reward = 0.1 + (car.speed * 0.1)
+    if car.speed > 4.5:
+        reward += 2
+
     done = False
 
     # Encourage drifting inside drift-zones
@@ -125,7 +128,7 @@ def compute_reward(car, track):
         for number, checkpoint_pos in track.checkpoints:
             if number == car.current_checkpoint:
                 distance = reward_car.distance_to(checkpoint_pos)
-                if distance < 26:
+                if distance < Track_size:
                     reward += 5
                     car.current_checkpoint += 1
                 break
@@ -180,7 +183,7 @@ def optimize_model():
 
 
 
-def agent_step(car, track):
+def agent_step(car, track, Track_size):
     """Handles interaction and memory storage for a single car."""
     car.rays(track.surface)
     state = get_state(car, track)
@@ -193,7 +196,7 @@ def agent_step(car, track):
     car.update_drift_boost(dt)
     car.rays(track.surface)
     
-    reward, done = compute_reward(car, track)
+    reward, done = compute_reward(car, track, Track_size)
     next_state = get_state(car, track)
     
     replay_buffer.push(state, action, reward, next_state, done)
