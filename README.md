@@ -112,4 +112,4 @@ All cars in training mode share **one policy network, one target network, and on
 - The code has an auto checkpoints placer by default but it is not the best so after drawing the track i suggest you that
 - you enter the edit mode of the drawing and clear all the checkpoints and place new one manually.
 - 50 cars might be a bit too much or not enough depending on your CPU/GPU so go too {line 27} in the {main.py} and change the number to what ever feels right too you.
-  
+-if u feel like there is something wrong with the model while training and it keeps on happening go to the project folder and delete the {model.pth} file it should reset anything saved that might be causing the issue
